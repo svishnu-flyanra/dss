@@ -281,14 +281,15 @@ def test_create_op1_v15(ids, scd_api, scd_session, scd_session2):
   assert resp.status_code == 200, resp.content
 
   data = resp.json()
-  op = data['operation_reference']
+  op = data['operational_intent_reference']
   assert op['id'] == ids(OP1_TYPE)
   assert op['uss_base_url'] == URL_OP1
   assert_datetimes_are_equal(op['time_start']['value'], req['extents'][0]['time_start']['value'])
   assert_datetimes_are_equal(op['time_end']['value'], req['extents'][0]['time_end']['value'])
   assert op['version'] == 1
   assert 'subscription_id' in op
-  assert 'state' not in op
+  assert  'state' in op 
+  assert op['state'] == 'Accepted'
   assert op.get('ovn', '')
 
   # Make sure the implicit Subscription exists when queried separately
@@ -325,9 +326,11 @@ def test_delete_implicit_sub_v15(ids, scd_api, scd_session, scd_session2):
     return
   resp = scd_session.get('/operational_intent_references/{}'.format(ids(OP1_TYPE)))
   assert resp.status_code == 200, resp.content
-  implicit_sub_id = resp.json()['operational_intent_reference']['subscription_id']
+  data = resp.json()['operational_intent_reference']
+  implicit_sub_id = data['subscription_id']
+  ver = data['version']
 
-  resp = scd_session.delete('/subscriptions/{}'.format(implicit_sub_id))
+  resp = scd_session.delete('/subscriptions/{}/{}'.format(implicit_sub_id, ver))
   assert resp.status_code == 400, resp.content
 
 
@@ -347,7 +350,14 @@ def test_delete_op1_by_uss2_v5(ids, scd_api, scd_session, scd_session2):
 @for_api_versions(scd.API_0_3_17)
 @default_scope(SCOPE_SC)
 def test_delete_op1_by_uss2_v15(ids, scd_api, scd_session, scd_session2):
-  resp = scd_session2.delete('/operational_intent_references/{}'.format(ids(OP1_TYPE)))
+  resp = scd_session.get('/operational_intent_references/{}'.format(ids(OP1_TYPE)))
+  assert resp.status_code == 200, resp.content
+  data = resp.json()
+  assert 'operational_intent_reference' in data
+  assert 'ovn' in data['operational_intent_reference']
+  ovn = data['operational_intent_reference']['ovn']
+
+  resp = scd_session2.delete('/operational_intent_references/{}/{}'.format(ids(OP1_TYPE), ovn))
   assert resp.status_code == 403, resp.content
 
 
@@ -393,7 +403,13 @@ def test_create_op2sub(ids, scd_api, scd_session, scd_session2):
   elif scd_api == scd.API_0_3_17:
     req.update({"notify_for_operational_intents": True})
 
-  resp = scd_session2.put('/subscriptions/{}'.format(ids(SUB2_TYPE)), json=req)
+  resp = scd_session2.get('/subscriptions/{}'.format(ids(SUB2_TYPE)), json=req)
+  assert resp.status_code == 200, resp.content
+  data = resp['subscription']
+  assert 'version' in data
+  ver = data['version']
+
+  resp = scd_session2.put('/subscriptions/{}/{}'.format(ids(SUB2_TYPE), ver), json=req)
   assert resp.status_code == 200, resp.content
 
   # The Subscription response should mention Op1, but not include its OVN
