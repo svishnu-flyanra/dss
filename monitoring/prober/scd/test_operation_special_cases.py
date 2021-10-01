@@ -187,13 +187,16 @@ def test_id_conversion_bug_v5(ids, scd_api, scd_session):
   }
   resp = scd_session.put('/subscriptions/{}'.format(sub_uuid), json=req)
   assert resp.status_code == 200, resp.content
+  data = resp.json()['subscription']
+  print("PUT /subscription/{s_id}\n", "\n".join("{} -> '{}'".format(i, data[i]) for i in data))
 
   req["extents"]["time_start"]["value"] = (time_start + datetime.timedelta(hours=1)).isoformat() + "Z"
   req["old_version"] = 1
 
   resp = scd_session.get('/subscriptions/{}'.format(sub_uuid), json=req)
   assert resp.status_code == 200, resp.content
-  print(resp.json()['subscription'])
+  data = resp.json()['subscription']
+  print("GET /subscription/{s_id}\n", "\n".join("{} -> '{}'".format(i, data[i]) for i in data))
 
   resp = scd_session.put('/subscriptions/{}/{}'.format(sub_uuid, resp.json()['subscription']['version']), json=req)
   assert resp.status_code == 200, resp.content
